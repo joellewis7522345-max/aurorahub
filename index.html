@@ -3036,7 +3036,7 @@ function mswClick(r,c){
     // hi score
     const hk='aur-msw-'+mswMode;if(!localStorage.getItem(hk)||mswTimer<+localStorage.getItem(hk))localStorage.setItem(hk,mswTimer.toFixed(1));
     chTrack('msw_win',1);
-    if(fbDb&&playerName){const ref=fbRef('aurora/lb/'+playerName);ref.update({['msw_'+mswMode]:mswTimer});}
+    if(fbDb&&playerName){const ref=fbRef('aurora/lb/'+playerName);if(ref)ref.update({['msw_'+mswMode]:mswTimer});}
   }
 }
 function mswRightClick(e,r,c){e.preventDefault();if(mswState==='dead'||mswState==='won')return;const cell=mswGrid[r][c];if(!cell.open){cell.flag=!cell.flag;mswRender();}}
@@ -3134,7 +3134,7 @@ function tetStart(){
 }
 function tetPause(){
   if(!tetRunning)return;tetPaused=!tetPaused;document.getElementById('tet-pause').textContent=tetPaused?'Resume':'Pause';
-  if(!tetPaused){clearInterval(tetInterval);tetInterval=setInterval(tetTick,Math.max(100,800-tetLevel*60));}
+  if(tetPaused){clearInterval(tetInterval);}else{tetInterval=setInterval(tetTick,Math.max(100,800-tetLevel*60));}
 }
 function tetHoldPiece(){
   if(!tetRunning||tetHeld)return;
@@ -3259,7 +3259,7 @@ function kenoEval(drawn){
   const picks=kenoSel.size,matches=[...kenoSel].filter(n=>drawn.includes(n)).length;
   const mult=(KENO_PAY[picks]||{})[matches]||0;
   const payout=Math.round(kenoBet2*mult),net=payout-kenoBet2;
-  document.getElementById('kn-msg').textContent=matches+' match'+(matches!==1?'es':'')+' of '+picks+' — '+(net>0?'won +'+net+' ':payout?'returned '+payout:'lost '+kenoBet2+' ---');
+  document.getElementById('kn-msg').textContent=matches+' match'+(matches!==1?'es':'')+' of '+picks+' — '+(net>0?'won +'+net+' ':payout?'returned '+payout:'lost '+kenoBet2+'.');
   settle('keno',kenoBet2,payout);
 }
 
