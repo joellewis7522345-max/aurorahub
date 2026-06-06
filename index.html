@@ -62,6 +62,11 @@
     --mesh3: rgba(6,182,212,.10);
     --mesh4: rgba(236,72,153,.08);
     --felt: rgba(16,24,64,.88);
+    --em: #10b981;
+    --cy: #06b6d4;
+    --cy2: #06b6d4;
+    --vi: #8b5cf6;
+    --vi2: #a78bfa;
   }
 }
 
@@ -97,6 +102,11 @@
     --mesh1: rgba(99,102,241,.22);
     --mesh2: rgba(52,211,153,.14);
     --mesh3: rgba(34,211,238,.12);
+    --em: #34d399;
+    --cy: #22d3ee;
+    --cy2: #22d3ee;
+    --vi: #8b5cf6;
+    --vi2: #a78bfa;
     --mesh4: rgba(244,114,182,.10);
     --felt: rgba(5,10,30,.92);
   }
@@ -1508,7 +1518,7 @@ if(FB_CFG.apiKey){try{firebase.initializeApp(FB_CFG);fbDb=firebase.database();co
       </div>
       <div class="dt-tower" id="dt-tower"></div>
       <div class="gmsg" id="dt-msg">Choose difficulty, place a bet and start.</div>
-      <div class="brow"><label>Bet</label><input id="dtbet" type="hidden" value="50"></div>
+      <div class="brow"><label>Bet</label><input class="ginput" id="dtbet" type="number" min="5" step="5" value="50"><div class="chips" id="dtchips"></div></div>
       <div class="brow" style="margin-top:.5rem"><button class="bg" id="dt-start">Start</button><button class="bp" id="dt-cash" disabled>Cash Out</button></div>
     </div>
   </div>
@@ -2208,13 +2218,13 @@ function setWind(w){wxW=w;['kmh','mph'].forEach(x=>document.getElementById('ub'+
 setInterval(()=>{const d=new Date(new Date().toLocaleString('en-AU',{timeZone:'Australia/Sydney'}));document.getElementById('wxclock').textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');if(wxFT){const s=Math.floor((Date.now()-wxFT)/1000);document.getElementById('wxago').textContent=s<60?s+'s ago':Math.floor(s/60)+'m ago';}},1000);
 function mkDrop(W){return{x:Math.random()*W,y:Math.random()*172,l:12+Math.random()*18,s:5+Math.random()*5,o:.06+Math.random()*.16,w:.5+Math.random()*.7};}
 function initWxCanvas(){
-  const cv=document.getElementById('wx-cv'),ctx=cv.getContext('2d');
+  const cv=document.getElementById('wxhero-cv'),ctx=cv.getContext('2d');
   function resize(){cv.width=cv.offsetWidth||800;cv.height=172;wxDrops=Array.from({length:80},()=>mkDrop(cv.width));}
   resize();new ResizeObserver(resize).observe(cv.parentElement);
   cancelAnimationFrame(wxRaf);
   (function frame(){const W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);const code=wxd?.current?.weather_code??63,rain=code>=51&&code<=82,clear=code<=1;const g=ctx.createLinearGradient(0,0,0,H);if(clear){g.addColorStop(0,'#0a1430');g.addColorStop(1,'#102048');}else if(rain){g.addColorStop(0,'#06101e');g.addColorStop(1,'#0a1420');}else{g.addColorStop(0,'#0a1228');g.addColorStop(1,'#0e1a34');}ctx.fillStyle=g;ctx.fillRect(0,0,W,H);if(rain){wxDrops.forEach(d=>{ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d.x-1.5,d.y+d.l);ctx.strokeStyle=`rgba(120,220,255,${d.o})`;ctx.lineWidth=d.w;ctx.stroke();d.y+=d.s;d.x-=1;if(d.y>H+d.l){d.y=-d.l;d.x=Math.random()*W;}});}else if(clear){const sg=ctx.createRadialGradient(W*.78,H*.4,0,W*.78,H*.4,110);sg.addColorStop(0,'rgba(46,230,176,.18)');sg.addColorStop(.5,'rgba(64,216,255,.07)');sg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);}wxRaf=requestAnimationFrame(frame);})();
 }
-function resizeWxCv(){const cv=document.getElementById('wx-cv');if(cv&&cv.offsetWidth>10){cv.width=cv.offsetWidth;cv.height=172;wxDrops=Array.from({length:80},()=>mkDrop(cv.width));}}
+function resizeWxCv(){const cv=document.getElementById('wxhero-cv');if(cv&&cv.offsetWidth>10){cv.width=cv.offsetWidth;cv.height=172;wxDrops=Array.from({length:80},()=>mkDrop(cv.width));}}
 
 /* ═══ NEWS ═══ */
 const LOCAL=[
