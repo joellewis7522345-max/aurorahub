@@ -1626,10 +1626,12 @@ function closeGame(id){
   const m=document.getElementById('modal-'+id);
   if(m)m.classList.remove('open');
   _blobPaused=false;
-  // Crash: cancel RAF if running
-  if(id==='crash'&&crashState==='running'){cancelAnimationFrame(crashRaf);crashRaf=null;crashState='idle';document.getElementById('crash-start-btn').disabled=false;document.getElementById('crash-cash-btn').disabled=true;}
-  // Mines: reset active state so game can restart
-  if(id==='mines'&&minesActive){minesActive=false;document.getElementById('mines-start-btn').disabled=false;document.getElementById('mines-cash-btn').disabled=true;}
+  // Crash: settle then cancel RAF
+  if(id==='crash'&&crashState==='running'){settle('crash',crashBet,0);cancelAnimationFrame(crashRaf);crashRaf=null;crashState='idle';document.getElementById('crash-start-btn').disabled=false;document.getElementById('crash-cash-btn').disabled=true;}
+  // Mines: settle then reset
+  if(id==='mines'&&minesActive){settle('mines',minesBet,0);minesActive=false;document.getElementById('mines-start-btn').disabled=false;document.getElementById('mines-cash-btn').disabled=true;}
+  // HiLo: settle mid-streak
+  if(id==='hilo'&&hlActive){settle('hilo',hlBet,0);hlActive=false;hlStreak=0;hlMult=1;}
 }
 document.querySelectorAll('.game-modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
 
@@ -1638,7 +1640,7 @@ document.querySelectorAll('.game-modal').forEach(m=>m.addEventListener('click',e
 function settle(game,bet,mult){
   const won=mult>1,profit=Math.round(bet*mult)-bet;
   const vipMult=VIP_MULT[STATE.vip]||1;
-  const finalChips=mult===1?STATE.chips:won?STATE.chips+Math.round(bet*(mult-1)*vipMult):STATE.chips-bet;
+  const finalChips=mult===1?STATE.chips:won?STATE.chips+Math.round(bet*(mult-1)*vipMult):STATE.chips-bet+Math.round(bet*Math.min(mult,1));
   setChips(finalChips,won?'win':'lose');
   if(won){
     STATE.wins++;STATE.streak++;
@@ -1855,9 +1857,15 @@ function roulSpin(){
   const seg=Math.PI*2/37;
 
   // Wheel spins one direction, ball orbits opposite then spirals in
-  const wheelSpins=6+Math.random()*3, ballSpins=10+Math.random()*5;
+  const wheelSpins=6+Math.random()*3;
   const wheelTarget=wheelSpins*Math.PI*2;
-  const ballTarget=-(ballSpins*Math.PI*2); // counter-spin
+  // Pocket center in absolute canvas angle at animation end
+  const pocketAbsAngle=wheelTarget+targetIdx*seg+seg/2;
+  // Ball counter-rotates; must end at same visual angle as pocket
+  // ballTarget mod 2π must equal pocketAbsAngle mod 2π
+  // Achieve by: pocketAbsAngle - N*2π (negative = counter-clockwise)
+  const ballSpinsBase=10+Math.floor(Math.random()*5);
+  const ballTarget=pocketAbsAngle-ballSpinsBase*Math.PI*2;
   const dur=7000; // 7s for drama
   let start=null, wheelAngle=0;
 
@@ -1873,9 +1881,8 @@ function roulSpin(){
     // Ease out quart for wheel
     const we=1-Math.pow(1-p,4);
     wheelAngle=wheelTarget*we;
-    // Ball: fast then eases into pocket position
-    const be=p<.7?p/.7:1; // linear fast phase, then lock
-    const ballOrbitEase=1-Math.pow(1-Math.min(1,p*1.3),3);
+    // Ball: decelerates smoothly all the way to pocket
+    const ballOrbitEase=1-Math.pow(1-p,2.5);
     const ballAngle=ballTarget*ballOrbitEase;
     // Ball spirals from track radius inward to pocket
     const spiralP=Math.max(0,(p-.6)/.4); // only in last 40% of spin
@@ -1886,10 +1893,9 @@ function roulSpin(){
 
     if(p<1){requestAnimationFrame(anim)}
     else{
-      // Final frame: ball locked in target pocket
-      const pocketAngle=wheelAngle+targetIdx*seg+seg/2;
+      // Final frame: ball angle is already at pocketAbsAngle (mod 2π), just shrink radius into pocket
       const pR=rPockets*.6;
-      roulDrawWheel(wheelAngle,pocketAngle,pR);
+      roulDrawWheel(wheelAngle,ballAngle,pR);
       const mult=roulCheckWin(result);
       const col=result===0?'🟢':ROUL_RED.includes(result)?'🔴':'⚫';
       document.getElementById('roul-msg').textContent=`${col} ${result} — ${mult>0?'Win!':'Loss'}`;
@@ -2128,7 +2134,8 @@ function slotsSpin(){
   const baseSpins=8,extra=SL_REELS;
   const reelOffsets=new Array(SL_REELS).fill(0);
   const reelDone=new Array(SL_REELS).fill(false);
-  const reelTargetOff=finals.map(s=>s*SL_SH);
+  // Offset so target symbol lands in center row (row=1), not top row (row=0)
+  const reelTargetOff=finals.map(s=>((s-1+SL_SYMS.length)%SL_SYMS.length)*SL_SH);
   const startTs=performance.now();
   const dur=i=>1400+i*350; // staggered stops
 
@@ -2461,8 +2468,9 @@ document.getElementById('modal-wheel').addEventListener('transitionend',function
 // ============================================================
 // KENO
 // ============================================================
-let _kenoPicked=new Set(),_kenoActive=false;
+let _kenoPicked=new Set(),_kenoActive=false,_kenoResetTimer=null;
 function kenoInit(){
+  clearTimeout(_kenoResetTimer);_kenoActive=false;
   const g=document.getElementById('keno-grid');
   g.innerHTML='';
   for(let i=1;i<=80;i++){
@@ -2475,7 +2483,7 @@ function kenoInit(){
   document.getElementById('keno-count').textContent='0';
   document.getElementById('keno-msg').textContent='';
   document.getElementById('keno-draw-btn').disabled=false;
-  buildBetUI('keno-bet-area');
+  if(!document.getElementById('keno-bet-area')._getBet)buildBetUI('keno-bet-area');
 }
 function kenoPick(n,btn){
   if(_kenoActive)return;
@@ -2504,8 +2512,8 @@ function kenoDraw(){
   const mult=pay>0?pay:0;
   document.getElementById('keno-msg').textContent=`${hits} hits → ${pay>0?pay+'× payout':'No win'}`;
   settle('keno',bet,mult);
-  playSFX(mult>1?mult>=10?'bigWin':'win':'lose');
-  setTimeout(()=>{_kenoActive=false;kenoInit();},2500);
+  playSFX(mult>1?mult>=10?'bigWin':'win':mult===1?'chip':'lose');
+  _kenoResetTimer=setTimeout(()=>{_kenoActive=false;kenoInit();},2500);
 }
 document.getElementById('modal-keno').addEventListener('transitionend',function(){
   if(this.classList.contains('open'))kenoInit();
@@ -2698,7 +2706,7 @@ function rrPull(){
     document.getElementById('rr-mult').textContent=mult+'×';
     document.getElementById('rr-msg').textContent=`Safe! Cash out at ${mult}× or keep going`;
     playSFX('chip');
-    if(_rrShot>=6){
+    if(_rrShot>=5){
       settle('rr',_rrBet,RR_MULTS[4]);
       document.getElementById('rr-pull-btn').disabled=true;
       document.getElementById('rr-msg').textContent='All chambers safe! 5×';
@@ -2827,7 +2835,7 @@ function crapsRoll(){
   playSFX('spin');
   let msg='',mult=0,done=false;
   if(_crapsSel==='any7'){done=true;mult=sum===7?5:0;msg=sum===7?'Seven! Pays 4:1!':'No seven';}
-  else if(_crapsSel==='field'){done=true;const fw=[2,3,4,9,10,11,12];mult=fw.includes(sum)?2:0;msg=mult>0?'Field win!':'Field loss';}
+  else if(_crapsSel==='field'){done=true;const fw=[2,3,4,9,10,11,12];mult=fw.includes(sum)?(sum===2||sum===12?3:2):0;msg=mult>0?`Field win${sum===2||sum===12?' (2:1)':''}!`:'Field loss';}
   else if(_crapsPhase==='comeout'){
     if(sum===7||sum===11){done=true;mult=_crapsSel==='pass'?2:0;msg=_crapsSel==='pass'?'Natural! Pass wins!':'Seven-out, Don\'t Pass loses';}
     else if(sum===2||sum===3||sum===12){
@@ -2851,8 +2859,15 @@ function crapsRoll(){
   document.getElementById('craps-msg').textContent=msg;
   setTimeout(()=>{document.getElementById('craps-roll-btn').disabled=false;},600);
 }
-document.getElementById('modal-craps').addEventListener('transitionend',function(){
-  if(this.classList.contains('open')&&!document.getElementById('craps-bet-area')._getBet)buildBetUI('craps-bet-area');
+document.getElementById('modal-craps').addEventListener('transitionend',function(e){
+  if(e.propertyName!=='opacity')return;
+  if(this.classList.contains('open')){
+    if(!document.getElementById('craps-bet-area')._getBet)buildBetUI('craps-bet-area');
+    _crapsPhase='comeout';_crapsPoint=0;_crapsSel='pass';
+    document.getElementById('craps-point').textContent='—';
+    document.getElementById('craps-phase').textContent='Come-out';
+    document.getElementById('craps-msg').textContent='';
+  }
 });
 
 // ============================================================
@@ -2941,7 +2956,7 @@ function snakeStart(){
   _snSpeed=Math.max(80,150-(_snSnake.length*2));
   _snLoop=setInterval(()=>{if(!_snPaused)snakeStep();},_snSpeed);
 }
-function snakeResume(){_snLoop=setInterval(()=>{if(!_snPaused)snakeStep();},_snSpeed);}
+function snakeResume(){_snSpeed=Math.max(80,150-(_snSnake.length*2));_snLoop=setInterval(()=>{if(!_snPaused)snakeStep();},_snSpeed);}
 function snakeStop(){clearInterval(_snLoop);_snLoop=null;_snRunning=false;}
 document.addEventListener('keydown',e=>{
   if(_arcActive!=='snake')return;
@@ -3059,6 +3074,8 @@ function brkoutDraw(){
   ctx.beginPath();ctx.arc(_bkBall.x,_bkBall.y,BK_BALL_R,0,Math.PI*2);ctx.fill();
 }
 function brkoutStep(){
+  if(_bkKeys['ArrowLeft']||_bkKeys['a'])_bkPadX=Math.max(BK_PAD_W/2,_bkPadX-4);
+  if(_bkKeys['ArrowRight']||_bkKeys['d'])_bkPadX=Math.min(BK_W-BK_PAD_W/2,_bkPadX+4);
   if(!_bkLaunched){_bkBall.x=_bkPadX;brkoutDraw();return;}
   _bkBall.x+=_bkBall.vx;_bkBall.y+=_bkBall.vy;
   // Wall
@@ -3070,7 +3087,7 @@ function brkoutStep(){
   if(_bkBall.y+BK_BALL_R>=py&&_bkBall.y-BK_BALL_R<=py+BK_PAD_H&&_bkBall.x>px&&_bkBall.x<px+BK_PAD_W&&_bkBall.vy>0){
     const rel=(_bkBall.x-(px+BK_PAD_W/2))/(BK_PAD_W/2);
     const spd=Math.sqrt(_bkBall.vx**2+_bkBall.vy**2);
-    _bkBall.vx=rel*spd;_bkBall.vy=-Math.sqrt(spd**2-_bkBall.vx**2);
+    _bkBall.vx=rel*spd;_bkBall.vy=-Math.sqrt(Math.max(0,spd**2-_bkBall.vx**2));
     playSFX('tick');
   }
   // Bottom
@@ -3080,11 +3097,12 @@ function brkoutStep(){
     _bkBall={x:_bkPadX,y:BK_H-40,vx:2.5,vy:-2.5};_bkLaunched=false;
     document.getElementById('brkout-msg').textContent='Space to launch';playSFX('lose');
   }
-  // Bricks
+  // Bricks — stop after first hit per frame to prevent double-flip
+  let _bkHit=false;
   _bkBricks.forEach(b=>{
-    if(!b.alive)return;
+    if(_bkHit||!b.alive)return;
     if(_bkBall.x+BK_BALL_R>b.x&&_bkBall.x-BK_BALL_R<b.x+BK_BRICK_W&&_bkBall.y+BK_BALL_R>b.y&&_bkBall.y-BK_BALL_R<b.y+BK_BRICK_H){
-      b.alive=false;_bkBall.vy*=-1;
+      b.alive=false;_bkHit=true;_bkBall.vy*=-1;
       _bkScore+=b.pts;document.getElementById('brkout-score').textContent=_bkScore;
       if(_bkScore>(ARC_BESTS.brkout||0))saveArcBest('brkout',_bkScore);
       playSFX('chip');
@@ -3584,7 +3602,7 @@ function hsbjDeal(){
   document.getElementById('hsbj-actions').innerHTML=`<button class="btn-gold" style="flex:1" onclick="hsbjHit()">Hit</button><button class="btn-ghost" style="flex:1" onclick="hsbjStand()">Stand</button><button class="btn-ghost" style="flex:1;font-size:.72rem" onclick="hsbjDouble()">Double</button>`;
   if(hsbjHandVal(_hsbjPlayer)===21){hsbjReveal();}
 }
-function hsbjHit(){if(!_hsbjActive)return;_hsbjPlayer.push(hsbjPop());hsbjRender(true);if(hsbjHandVal(_hsbjPlayer)>21){hsbjReveal();}}
+function hsbjHit(){if(!_hsbjActive)return;_hsbjPlayer.push(hsbjPop());hsbjRender(true);if(hsbjHandVal(_hsbjPlayer)>=21){hsbjReveal();}}
 function hsbjDouble(){if(!_hsbjActive||_hsbjPlayer.length>2)return;if(STATE.chips<_hsbjBet){toast('Not enough chips to double','info');return;}_hsbjBet=Math.min(_hsbjBet*2,STATE.chips);_hsbjPlayer.push(hsbjPop());hsbjReveal();}
 function hsbjStand(){if(!_hsbjActive)return;hsbjReveal();}
 function hsbjReveal(){
@@ -3783,7 +3801,7 @@ function habitToggle(id){
   if(_habDone.has(id)){
     _habDone.delete(id);
     // Undo streak if done today
-    if(h.lastDone===today){h.streak=Math.max(0,h.streak-1);h.lastDone=today-1;}
+    if(h.lastDone===today){h.streak=Math.max(0,h.streak-1);h.lastDone=today-2;}
   } else {
     _habDone.add(id);
     const yesterday=today-1;
