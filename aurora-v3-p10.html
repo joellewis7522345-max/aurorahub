@@ -1453,14 +1453,14 @@ function isRaining(c){return[51,53,55,61,63,65,80,81,82,95,96,99].includes(c)}
 
 function loadWeather(){
   if(wxLoaded)return;
+  wxLoaded=true;
   if(!navigator.geolocation){document.getElementById('wx-location-label').textContent='Geolocation unavailable';return}
   navigator.geolocation.getCurrentPosition(pos=>{
     const{latitude:lat,longitude:lon}=pos.coords;
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`)
       .then(r=>r.json()).then(d=>{
-        wxLoaded=true;
         const c=d.current,dl=d.daily;
-        const code=c.weather_code,temp=Math.round(c.temperature_2m),feels=Math.round(c.apparent_temperature),hum=c.relative_humidity_2m,wind=Math.round(c.wind_speed_10m),uv=c.uv_index.toFixed(1);
+        const code=c.weather_code,temp=Math.round(c.temperature_2m),feels=Math.round(c.apparent_temperature),hum=c.relative_humidity_2m??0,wind=Math.round(c.wind_speed_10m??0),uv=(c.uv_index??0).toFixed(1);
         // Main display
         document.getElementById('wx-temp').innerHTML=`${temp}<sup>°</sup>`;
         document.getElementById('wx-condition').textContent=wxDesc(code);
@@ -1628,12 +1628,13 @@ function closeGame(id){
   _blobPaused=false;
   // Crash: settle then cancel RAF
   if(id==='crash'&&crashState==='running'){settle('crash',crashBet,0);cancelAnimationFrame(crashRaf);crashRaf=null;crashState='idle';document.getElementById('crash-start-btn').disabled=false;document.getElementById('crash-cash-btn').disabled=true;}
+  if(id==='plinko')_pkDropActive=false;
   // Mines: settle then reset
   if(id==='mines'&&minesActive){settle('mines',minesBet,0);minesActive=false;document.getElementById('mines-start-btn').disabled=false;document.getElementById('mines-cash-btn').disabled=true;}
   // HiLo: settle mid-streak
   if(id==='hilo'&&hlActive){settle('hilo',hlBet,0);hlActive=false;hlStreak=0;hlMult=1;}
 }
-document.querySelectorAll('.game-modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+document.querySelectorAll('.game-modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m){const gid=m.id.replace('modal-','');closeGame(gid);}}));
 
 /* settle(game, bet, payout_multiplier)
    payout_multiplier: 0=loss, 1=push, 2=2:1 win, etc. */
@@ -1649,7 +1650,7 @@ function settle(game,bet,mult){
     playSFX(winAmt>=500?'bigWin':'win');
     trackChallenge('casino_wins');
     trackChallenge('big_win',winAmt);
-    if(STATE.streak>=3)trackChallenge('streak',STATE.streak);
+    if(STATE.streak===3)trackChallenge('streak',3);
   }else{
     STATE.streak=0;
     playSFX('lose');
@@ -1962,7 +1963,7 @@ function crashStart(){
 }
 function crashCashOut(){
   if(crashState!=='running')return;
-  crashState='cashedout';
+  crashState='idle';
   cancelAnimationFrame(crashRaf);
   document.getElementById('crash-mult').className='crash-mult safe';
   settle('crash',crashBet,crashMult);
@@ -2013,9 +2014,12 @@ function pkDraw(ball){
     ctx.fillStyle='#fff';ctx.shadowColor='rgba(255,255,255,.8)';ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0;
   }
 }
+let _pkDropActive=false;
 function plinkoDrop(){
   const ba=document.getElementById('plinko-bet-area'),bet=ba._getBet?ba._getBet():50;
   if(bet<1||bet>STATE.chips){document.getElementById('plinko-msg').textContent='Invalid bet';return}
+  if(_pkDropActive)return;
+  _pkDropActive=true;
   document.getElementById('plinko-drop-btn').disabled=true;
   document.getElementById('plinko-msg').textContent='';
   // Simulate path
@@ -2037,10 +2041,12 @@ function plinkoDrop(){
   y=312;path.push({x:finalX*(W/PK_COLS)+W/PK_COLS/2,y});
   let step=0,_last=0;
   function animate(){
+    if(!_pkDropActive)return;
     if(step>=path.length){
       const mult=PK_MULTS[finalX];
+      _pkDropActive=false;
       document.getElementById('plinko-msg').textContent=`${mult}× — ${mult>1?'Win!':'Loss'}`;
-      settle('plinko',bet,mult);
+      if(document.getElementById('modal-plinko').classList.contains('open'))settle('plinko',bet,mult);
       document.getElementById('plinko-drop-btn').disabled=false;
       pkDraw(null);return;
     }
@@ -2162,7 +2168,7 @@ function slotsSpin(){
       if(maxCount===5)mult=50;
       else if(maxCount===4)mult=10;
       else if(maxCount===3)mult=3;
-      else if(mid[0]===mid[1])mult=1.5;
+      else if(maxCount===2)mult=1.5;
       // Sevens jackpot
       if(mid.every(s=>s===0))mult=100;
       if(mult>0){document.getElementById('slots-wl').classList.add('show');document.getElementById('slots-msg').textContent=mult+'× WIN!';if(mult>=10)playSFX('bigWin');else playSFX('win');trackChallenge('slots_spin',1)}
@@ -2228,8 +2234,7 @@ function minesReveal(i){
 function minesCashOut(){
   if(!minesActive)return;
   const mult=minesGetMult();
-  settle('mines',minesBet,mult);
-  trackChallenge('casino_wins');
+  settle('mines',minesBet,mult); // settle already calls trackChallenge('casino_wins') on win
   minesActive=false;playSFX('win');
   document.getElementById('mines-start-btn').disabled=false;
   document.getElementById('mines-cash-btn').disabled=true;
@@ -2278,7 +2283,7 @@ function diceRoll(){
   let frames=0;
   const flash=()=>{
     if(frames++<8){diceDraw(Math.floor(Math.random()*100)+1,true);requestAnimationFrame(flash)}
-    else{diceDraw(result,won);document.getElementById('dice-result').textContent=`Rolled ${result} — ${won?'Win!':'Loss'}`;settle('dice',bet,won?payout:0);btn.disabled=false;if(won)playSFX('win');else playSFX('lose')}
+    else{diceDraw(result,won);document.getElementById('dice-result').textContent=`Rolled ${result} — ${won?'Win!':'Loss'}`;if(document.getElementById('modal-dice').classList.contains('open'))settle('dice',bet,won?payout:0);btn.disabled=false;if(won)playSFX('win');else playSFX('lose')}
   };
   playSFX('spin');requestAnimationFrame(flash);
 }
@@ -2675,7 +2680,7 @@ document.getElementById('modal-poker').addEventListener('transitionend',function
 let _rrBullet=-1,_rrShot=0,_rrBet=0;
 const RR_MULTS=[1.2,1.5,2,2.5,5,0];
 function rrInit(){
-  _rrBullet=Math.floor(Math.random()*6);
+  _rrBullet=Math.floor(Math.random()*5);
   _rrShot=0;
   rrRenderChambers();
   document.getElementById('rr-mult').textContent='1.20×';
@@ -2939,8 +2944,9 @@ function snakeStep(){
     _snScore+=10;
     document.getElementById('snake-score').textContent=_snScore;
     if(_snScore>(ARC_BESTS.snake||0))saveArcBest('snake',_snScore);
-    snakeSpawnFood();
-    playSFX('chip');
+    snakeSpawnFood();playSFX('chip');
+    const ns=Math.max(80,150-(_snSnake.length*2));
+    if(ns!==_snSpeed){_snSpeed=ns;clearInterval(_snLoop);_snLoop=setInterval(()=>{if(!_snPaused)snakeStep();},_snSpeed);}
   } else {_snSnake.pop();}
   snakeDraw();
 }
@@ -2976,6 +2982,7 @@ function t2048New(){
   _t2048Board=Array(4).fill(0).map(()=>Array(4).fill(0));
   _t2048Score=0;
   document.getElementById('t2048-score').textContent='0';
+  document.getElementById('t2048-best').textContent=ARC_BESTS['2048']||0;
   document.getElementById('t2048-msg').textContent='';
   t2048Spawn();t2048Spawn();t2048Render();
 }
@@ -3169,7 +3176,8 @@ function mswPlaceMines(safeR,safeC){
     _mswBoard[r][c]=n;}
 }
 function mswReveal(r,c){
-  if(r<0||r>=MSW_ROWS||c<0||c>=MSW_COLS||_mswRevealed[r][c]||_mswFlagged[r][c])return;
+  if(r<0||r>=MSW_ROWS||c<0||c>=MSW_COLS||_mswRevealed[r][c])return;
+  _mswFlagged[r][c]=false; // flood fill overrides flags so board stays winnable
   _mswRevealed[r][c]=true;
   if(_mswBoard[r][c]===0)for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)mswReveal(r+dr,c+dc);
 }
@@ -3528,9 +3536,10 @@ function apTick(game){
     const target=parseFloat(document.getElementById('crash-ap-target').value)||2;
     crashStart();
     // Poll until crash resolves, then cash out at target or check outcome
-    const poll=setInterval(()=>{
-      if(crashState==='running'&&crashMult>=target){crashCashOut();clearInterval(poll);setTimeout(()=>{if(apCheck('crash'))setTimeout(()=>apTick('crash'),600);},500);}
-      else if(crashState==='idle'){clearInterval(poll);setTimeout(()=>{if(apCheck('crash'))setTimeout(()=>apTick('crash'),600);},300);}
+    AP.crash._poll=setInterval(()=>{
+      if(!AP.crash.running){clearInterval(AP.crash._poll);AP.crash._poll=null;return;}
+      if(crashState==='running'&&crashMult>=target){crashCashOut();clearInterval(AP.crash._poll);AP.crash._poll=null;setTimeout(()=>{if(apCheck('crash'))setTimeout(()=>apTick('crash'),600);},500);}
+      else if(crashState==='idle'){clearInterval(AP.crash._poll);AP.crash._poll=null;setTimeout(()=>{if(apCheck('crash'))setTimeout(()=>apTick('crash'),600);},300);}
     },100);
   }
 }
@@ -3622,7 +3631,7 @@ function hsbjReveal(){
   document.getElementById('hsbj-actions').innerHTML=`<button class="btn-gold" style="flex:1" onclick="hsbjDeal()">Deal Again</button>`;
 }
 document.getElementById('modal-hsbj').addEventListener('transitionend',function(){
-  if(this.classList.contains('open')&&!document.getElementById('hsbj-bet-area')._getBet)buildBetUI('hsbj-bet-area',()=>Math.min(5000,STATE.chips));
+  if(this.classList.contains('open')&&!document.getElementById('hsbj-bet-area')._getBet){buildBetUI('hsbj-bet-area',()=>Math.min(5000,STATE.chips));_hsbjActive=false;_hsbjPlayer=[];_hsbjDealer=[];document.getElementById('hsbj-player-cards').innerHTML='';document.getElementById('hsbj-dealer-cards').innerHTML='';document.getElementById('hsbj-msg').textContent='';document.getElementById('hsbj-actions').innerHTML='<button class="btn-gold" style="flex:1" onclick="hsbjDeal()">Deal</button>';}
 });
 
 // ============================================================
@@ -3691,7 +3700,7 @@ function viproulSpin(){
       const won=vrWins(_vrSel,landed);
       const betDef=VR_BETS.find(b=>b.id===_vrSel);
       // VIP roulette: extra 3× multiplier on VIP wins (on top of normal VIP mult in settle)
-      const mult=won?(betDef.pay+(STATE.vip>=3?1:0)):0;
+      const mult=won?betDef.pay:0;
       document.getElementById('viproul-msg').textContent=`${landed} — ${won?'Win! '+mult+'×':'No win'}`;
       settle('viproul',_vrBet,mult);
       playSFX(won?'win':'lose');
@@ -3735,7 +3744,7 @@ function renderStats(){
   if(cvEl&&_history.length>1){
     cvEl.width=cvEl.offsetWidth||360;
     const ctx=cvEl.getContext('2d'),W=cvEl.width,H=cvEl.height||80;
-    ctx.fillStyle='var(--surface)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#0a0a0f';ctx.fillRect(0,0,W,H);
     // Build cumulative chip line from history (reversed = oldest first)
     const profits=[..._history].reverse().map(h=>h.profit);
     const cumulative=[0];profits.forEach(p=>cumulative.push(cumulative[cumulative.length-1]+p));
