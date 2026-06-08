@@ -2604,25 +2604,28 @@ function pkHandRank(cards){
   const c=cards.slice().sort((a,b)=>b.r-a.r);
   const rs=c.map(x=>x.r),ss=c.map(x=>x.s);
   const counts={};rs.forEach(r=>counts[r]=(counts[r]||0)+1);
-  const vals=Object.values(counts).sort((a,b)=>b-a);
+  const groups=Object.entries(counts).map(([r,n])=>({r:+r,n})).sort((a,b)=>b.n-a.n||b.r-a.r);
+  const vals=groups.map(g=>g.n),gRanks=groups.map(g=>g.r);
   const flush=ss.every(s=>s===ss[0]);
   const uniq=[...new Set(rs)].sort((a,b)=>a-b);
-  const straight=uniq.length===5&&(uniq[4]-uniq[0]===4||(uniq.join(',')===('0,1,2,3,12')));
-  if(flush&&straight)return 8;
-  if(vals[0]===4)return 7;
-  if(vals[0]===3&&vals[1]===2)return 6;
-  if(flush)return 5;
-  if(straight)return 4;
-  if(vals[0]===3)return 3;
-  if(vals[0]===2&&vals[1]===2)return 2;
-  if(vals[0]===2)return 1;
-  return 0;
+  const straight=uniq.length===5&&(uniq[4]-uniq[0]===4||uniq.join(',')===('0,1,2,3,12'));
+  const sHigh=straight?(uniq[4]-uniq[0]===4?uniq[4]:uniq[3]):0;
+  if(flush&&straight)return[8,sHigh];
+  if(vals[0]===4)return[7,gRanks[0],gRanks[1]];
+  if(vals[0]===3&&vals[1]===2)return[6,gRanks[0],gRanks[1]];
+  if(flush)return[5,...gRanks];
+  if(straight)return[4,sHigh];
+  if(vals[0]===3)return[3,gRanks[0],gRanks[1],gRanks[2]];
+  if(vals[0]===2&&vals[1]===2)return[2,gRanks[0],gRanks[1],gRanks[2]];
+  if(vals[0]===2)return[1,gRanks[0],gRanks[1],gRanks[2],gRanks[3]];
+  return[0,...gRanks];
 }
+function pkCmpHand(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]??-1)-(b[i]??-1);if(d!==0)return d;}return 0;}
 function pkBest5(cards){
-  let best=-1;
+  let best=null;
   for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++){
     const five=cards.filter((_,k)=>k!==i&&k!==j);
-    const r=pkHandRank(five);if(r>best)best=r;
+    const r=pkHandRank(five);if(!best||pkCmpHand(r,best)>0)best=r;
   }
   return best;
 }
@@ -2662,9 +2665,10 @@ function pokerShowdown(){
   document.getElementById('poker-dealer').innerHTML=_pkDealer.map(c=>pkCard(c)).join('');
   const pRank=pkBest5([..._pkPlayer,..._pkBoard]);
   const dRank=pkBest5([..._pkDealer,..._pkBoard]);
+  const cmp=pkCmpHand(pRank,dRank);
   let msg,mult;
-  if(pRank>dRank){msg=`You win! ${PK_NAMES[pRank]}`;mult=2;playSFX('win');}
-  else if(dRank>pRank){msg=`Dealer wins. ${PK_NAMES[dRank]}`;mult=0;playSFX('lose');}
+  if(cmp>0){msg=`You win! ${PK_NAMES[pRank[0]]}`;mult=2;playSFX('win');}
+  else if(cmp<0){msg=`Dealer wins. ${PK_NAMES[dRank[0]]}`;mult=0;playSFX('lose');}
   else{msg='Chop! Push';mult=1;playSFX('chip');}
   document.getElementById('poker-msg').textContent=msg;
   settle('poker',_pkBet,mult);
@@ -3517,6 +3521,8 @@ function apStop(game){
 function apCheck(game){
   const ap=AP[game];
   if(!ap.running)return false;
+  const _apBa=document.getElementById(game+'-bet-area');
+  if(_apBa&&_apBa._getBet&&_apBa._getBet()>STATE.chips){apStop(game);document.getElementById(`${game}-ap-status`).textContent='Stopped: insufficient chips';return false;}
   // Stop-on-loss
   const slChk=document.getElementById(`${game}-ap-sl-chk`);
   if(slChk&&slChk.checked){const slVal=+document.getElementById(`${game}-ap-sl-val`).value||500;if(ap.startChips-STATE.chips>=slVal){apStop(game);document.getElementById(`${game}-ap-status`).textContent=`Stopped: loss ≥ ${slVal}`;return false;}}
@@ -3730,7 +3736,7 @@ let _gameStats=JSON.parse(localStorage.getItem(STATS_KEY)||'{}');
 
 function renderStats(){
   // Net profit
-  const net=_history.reduce((s,h)=>s+h.profit,0);
+  const net=Object.values(_gameStats).reduce((s,g)=>s+(g.profit||0),0);
   const netEl=document.getElementById('stat-net');
   if(netEl){netEl.textContent=(net>=0?'+':'')+net.toLocaleString();netEl.className='stats-val '+(net>=0?'pos':'neg');}
   // Win rate
@@ -3809,11 +3815,11 @@ function habitToggle(id){
   const today=Math.floor(Date.now()/86400000);
   if(_habDone.has(id)){
     _habDone.delete(id);
-    // Undo streak if done today
-    if(h.lastDone===today){h.streak=Math.max(0,h.streak-1);h.lastDone=today-2;}
+    if(h.lastDone===today){h.streak=h._prevStreak!==undefined?h._prevStreak:Math.max(0,h.streak-1);h.lastDone=h._prevLastDone!==undefined?h._prevLastDone:today-2;delete h._prevStreak;delete h._prevLastDone;}
   } else {
     _habDone.add(id);
     const yesterday=today-1;
+    h._prevStreak=h.streak;h._prevLastDone=h.lastDone;
     h.streak=h.lastDone===yesterday?h.streak+1:1;
     h.lastDone=today;
     if(h.streak>0){const xpBonus=Math.min(50,10*h.streak);addXP(xpBonus);toast(`${h.name} ✓ +${xpBonus} XP`+(h.streak>1?` (${h.streak} day streak)`:'' ),'win');}
