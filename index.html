@@ -533,6 +533,26 @@ img,canvas{display:block}
   .ach-grid{grid-template-columns:1fr}
   .stats-grid{grid-template-columns:repeat(2,1fr)}
 }
+/* ── Mobile nav cleanup ── */
+@media(max-width:860px){
+  .streak-badge{display:none!important}
+  #nav-vip-badge{display:none!important}
+  .nav-lvl{display:none!important}
+  #amb-btn{display:none!important}
+}
+@media(max-width:480px){
+  #snd-btn{display:none!important}
+  #bonus-btn{display:none!important}
+  .nav-brand{font-size:1.1rem;letter-spacing:.15em}
+  .nav-chips{font-size:.75rem;padding:.28rem .55rem}
+}
+/* user-menu: prevent right-edge overflow on small screens */
+@media(max-width:480px){
+  .user-menu{right:auto;left:50%;transform:translateX(-50%);min-width:190px}
+}
+/* mob-only items: hidden on desktop, shown on mobile */
+.mob-only{display:none}
+@media(max-width:860px){.mob-only{display:block}}
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -599,6 +619,10 @@ img,canvas{display:block}
       <div class="user-menu" id="user-menu">
         <div class="user-menu-item" onclick="go('showcase');toggleUserMenu()">Profile</div>
         <div class="user-menu-item" onclick="go('compete');toggleUserMenu()">Leaderboard</div>
+        <div class="user-menu-item mob-only" id="um-sound" onclick="toggleSound();document.getElementById('um-sound').textContent=STATE.sound?'Sound: On':'Sound: Off'">Sound: On</div>
+        <div class="user-menu-item mob-only" onclick="claimBonus();toggleUserMenu()">Daily Bonus</div>
+        <div class="divider" style="margin:.25rem 0"></div>
+        <div class="user-menu-item" onclick="resetChips();toggleUserMenu()">Reset Chips ◈ 1,000</div>
         <div class="divider" style="margin:.25rem 0"></div>
         <div class="user-menu-item danger" onclick="authSignOut();toggleUserMenu()">Sign Out</div>
       </div>
@@ -837,6 +861,7 @@ img,canvas{display:block}
       <div style="display:flex;gap:.5rem;margin-top:.75rem">
         <button class="btn-gold" style="flex:1" onclick="crashStart()" id="crash-start-btn">Bet & Launch</button>
         <button class="btn-ghost" style="flex:1" onclick="crashCashOut()" id="crash-cash-btn" disabled>Cash Out</button>
+        <button class="btn-ghost" style="font-size:.72rem;padding:.45rem .6rem" onclick="crashReset()">New Game</button>
       </div>
       <div class="autoplay-panel" id="crash-ap-panel">
         <h4>Auto-Play</h4>
@@ -905,6 +930,7 @@ img,canvas{display:block}
       <div style="display:flex;gap:.5rem;margin-top:.75rem">
         <button class="btn-gold" style="flex:1" onclick="minesStart()" id="mines-start-btn">Start</button>
         <button class="btn-ghost" style="flex:1" onclick="minesCashOut()" id="mines-cash-btn" disabled>Cash Out</button>
+        <button class="btn-ghost" style="flex:1;font-size:.75rem" onclick="minesReset()" id="mines-reset-btn">New Game</button>
       </div>
     </div>
   </div>
@@ -968,6 +994,7 @@ img,canvas{display:block}
       <div class="hilo-btns" style="margin-top:.75rem">
         <button class="btn-gold" style="flex:1" onclick="hiloPick('higher')" id="hilo-hi-btn">Higher ↑</button>
         <button class="btn-ghost" style="flex:1" onclick="hiloCashOut()" id="hilo-cash-btn" disabled>Cash Out</button>
+        <button class="btn-ghost" style="font-size:.72rem;padding:.45rem .6rem" onclick="hiloReset()">Reset</button>
         <button class="btn-gold" style="flex:1" onclick="hiloPick('lower')" id="hilo-lo-btn">Lower ↓</button>
       </div>
       <div style="text-align:center;font-size:.8rem;font-weight:700;color:var(--gold);min-height:1.4em;margin-top:.5rem" id="hilo-msg"></div>
@@ -1055,6 +1082,7 @@ img,canvas{display:block}
       <div style="display:flex;gap:.5rem;margin-top:.5rem">
         <button class="btn-gold" style="flex:1" onclick="rrPull()" id="rr-pull-btn">Pull Trigger</button>
         <button class="btn-ghost" style="flex:1" onclick="rrCashOut()" id="rr-cash-btn">Cash Out</button>
+        <button class="btn-ghost" style="flex:1;font-size:.72rem" onclick="rrReset()">New Game</button>
       </div>
     </div>
   </div>
@@ -1074,6 +1102,7 @@ img,canvas{display:block}
       <div style="display:flex;gap:.5rem;margin-top:.75rem">
         <button class="btn-gold" style="flex:1" onclick="dtStart()" id="dt-start-btn">Start</button>
         <button class="btn-ghost" style="flex:1" onclick="dtCashOut()" id="dt-cash-btn" disabled>Cash Out</button>
+        <button class="btn-ghost" style="flex:1;font-size:.72rem" onclick="dtReset()">New Game</button>
       </div>
       <div style="text-align:center;font-size:.8rem;font-weight:700;color:var(--gold);min-height:1.4em;margin-top:.5rem" id="dt-msg"></div>
     </div>
@@ -1320,7 +1349,13 @@ function vipFromLevel(l){let t=0;for(let i=1;i<VIP_LVL.length;i++)if(l>=VIP_LVL[
 
 /* ── DB ── */
 function playerRef(){return fbDb.ref('aurora/players/'+STATE.uid)}
-function savePlayer(){if(!STATE.uid)return;playerRef().set({username:STATE.username,chips:STATE.chips,xp:STATE.xp,wins:STATE.wins,biggest:STATE.biggest,streak:STATE.streak,vip:STATE.vip,ts:Date.now()})}
+let _saveDebounce=null;
+function savePlayer(){
+  if(!STATE.uid)return;
+  clearTimeout(_saveDebounce);
+  _saveDebounce=setTimeout(()=>playerRef().set({username:STATE.username,chips:STATE.chips,xp:STATE.xp,wins:STATE.wins,biggest:STATE.biggest,streak:STATE.streak,vip:STATE.vip,ts:Date.now()}),600);
+}
+function savePlayerNow(){if(!STATE.uid)return;clearTimeout(_saveDebounce);playerRef().set({username:STATE.username,chips:STATE.chips,xp:STATE.xp,wins:STATE.wins,biggest:STATE.biggest,streak:STATE.streak,vip:STATE.vip,ts:Date.now()})}
 function loadPlayer(){return playerRef().once('value').then(snap=>{const d=snap.val();if(d){STATE.chips=d.chips??1000;STATE.xp=d.xp??0;STATE.wins=d.wins??0;STATE.biggest=d.biggest??0;STATE.streak=d.streak??0;STATE.vip=d.vip??0;if(d.username)STATE.username=d.username}else savePlayer();STATE.level=levelFromXP(STATE.xp);STATE.vip=vipFromLevel(STATE.level);renderNav();renderHomeStats()})}
 
 /* ── Auth ── */
@@ -1343,7 +1378,7 @@ function authSubmit(){
   }
 }
 function friendlyAuthError(c){return({'auth/invalid-email':'Invalid email.','auth/user-not-found':'No account found.','auth/wrong-password':'Wrong password.','auth/email-already-in-use':'Email already registered.','auth/weak-password':'Password too weak (6+ chars).','auth/too-many-requests':'Too many attempts. Wait.','auth/invalid-credential':'Invalid email or password.'}[c])||'Something went wrong.'}
-function authSignOut(){fbAuth.signOut().then(()=>{STATE.uid=null;showAuth()})}
+function authSignOut(){savePlayerNow();fbAuth.signOut().then(()=>{STATE.uid=null;showAuth()})}
 function onAuthed(){hideAuth();renderNav();renderHomeStats();buildChallenges();renderBonus();loadWeather();document.getElementById('home-name').textContent=STATE.username||'Player';document.getElementById('home-greeting').textContent=getGreeting()}
 fbAuth.onAuthStateChanged(u=>{if(u){STATE.uid=u.uid;loadPlayer().then(()=>{hideSplash();onAuthed()}).catch(()=>hideSplash())}else{hideSplash();showAuth()}});
 ['auth-email','auth-password','auth-username'].forEach(id=>document.getElementById(id)?.addEventListener('keydown',e=>{if(e.key==='Enter')authSubmit()}));
@@ -1360,7 +1395,13 @@ function setChips(v,flash){
   if(flash==='lose'){nc.classList.add('chip-flash-red');setTimeout(()=>nc.classList.remove('chip-flash-red'),450)}
   savePlayer();
 }
-function addXP(a){const prev=STATE.level;STATE.xp+=a;STATE.level=levelFromXP(STATE.xp);STATE.vip=vipFromLevel(STATE.level);renderNav();renderHomeStats();if(STATE.level>prev)onLevelUp(STATE.level);savePlayer()}
+function addXP(a){
+  const prev=STATE.level;
+  STATE.xp+=a;STATE.level=levelFromXP(STATE.xp);STATE.vip=vipFromLevel(STATE.level);
+  renderNav();renderHomeStats();
+  if(STATE.level>prev)onLevelUp(STATE.level);
+  savePlayer();
+}
 function onLevelUp(l){toast(`Level ${l}! +90 chips`,'win');setChips(STATE.chips+90,'win');spawnConfetti(60)}
 
 /* ── Daily Bonus ── */
@@ -1433,10 +1474,25 @@ function buildChallenges(){
   });
   window._dailyChallenges={pool,prog,key};
 }
+const _CH_MAX_TYPES=new Set(['streak','big_win']);
 function trackChallenge(type,val=1){
   if(!window._dailyChallenges)return;
   const{pool,prog,key}=window._dailyChallenges;
-  pool.forEach(ch=>{if(ch.type===type){prog[ch.id]=(prog[ch.id]||0)+val;if(prog[ch.id]>=ch.target&&!(prog[ch.id]-val>=ch.target)){addXP(ch.xp);toast(`Challenge done! +${ch.xp} XP`,'win')}}});
+  let changed=false;
+  pool.forEach(ch=>{
+    if(ch.type!==type)return;
+    const prev=prog[ch.id]||0;
+    if(_CH_MAX_TYPES.has(type)){
+      // max-style: only update if new value is higher
+      if(val<=prev)return;
+      prog[ch.id]=val;
+    } else {
+      prog[ch.id]=prev+val;
+    }
+    if(prog[ch.id]>=ch.target&&prev<ch.target){addXP(ch.xp);toast(`Challenge done! +${ch.xp} XP`,'win');}
+    changed=true;
+  });
+  if(!changed)return;
   localStorage.setItem(key,JSON.stringify(prog));
   window._dailyChallenges.prog=prog;
   buildChallenges();
@@ -1628,11 +1684,12 @@ function closeGame(id){
   _blobPaused=false;
   // Crash: settle then cancel RAF
   if(id==='crash'&&crashState==='running'){settle('crash',crashBet,0);cancelAnimationFrame(crashRaf);crashRaf=null;crashState='idle';document.getElementById('crash-start-btn').disabled=false;document.getElementById('crash-cash-btn').disabled=true;}
+  if(id==='crash'){if(AP.crash&&AP.crash._poll){clearInterval(AP.crash._poll);AP.crash._poll=null;}}
   if(id==='plinko')_pkDropActive=false;
   // Mines: settle then reset
-  if(id==='mines'&&minesActive){settle('mines',minesBet,0);minesActive=false;document.getElementById('mines-start-btn').disabled=false;document.getElementById('mines-cash-btn').disabled=true;}
+  if(id==='mines'&&minesActive){settle('mines',minesBet,0);minesActive=false;document.getElementById('mines-start-btn').disabled=false;document.getElementById('mines-cash-btn').disabled=true;minesRenderGrid();}
   // HiLo: settle mid-streak
-  if(id==='hilo'&&hlActive){settle('hilo',hlBet,0);hlActive=false;hlStreak=0;hlMult=1;}
+  if(id==='hilo'&&hlActive){settle('hilo',hlBet,0);hlActive=false;hlStreak=0;hlMult=1;document.getElementById('hilo-mult').textContent='Multiplier: 1.00×';document.getElementById('hilo-streak-info').textContent='Streak: 0';}
 }
 document.querySelectorAll('.game-modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m){const gid=m.id.replace('modal-','');closeGame(gid);}}));
 
@@ -1650,7 +1707,8 @@ function settle(game,bet,mult){
     playSFX(winAmt>=500?'bigWin':'win');
     trackChallenge('casino_wins');
     trackChallenge('big_win',winAmt);
-    if(STATE.streak===3)trackChallenge('streak',3);
+    trackChallenge('profit',winAmt);
+    if(STATE.streak>=3)trackChallenge('streak',STATE.streak);
   }else{
     STATE.streak=0;
     playSFX('lose');
@@ -1765,8 +1823,9 @@ function bjEnd(){
 }
 // Init BJ bet UI when modal opens
 document.getElementById('modal-bj').addEventListener('transitionend',function(){
-  if(this.classList.contains('open')&&!document.getElementById('bj-bet-area')._getBet){
-    buildBetUI('bj-bet-area');bjSetActions('idle');
+  if(this.classList.contains('open')){
+    if(!document.getElementById('bj-bet-area')._getBet) buildBetUI('bj-bet-area');
+    bjSetActions(bjState==='play'?'play':bjState==='idle'?'idle':'done');
   }
 });
 
@@ -1901,14 +1960,16 @@ function roulSpin(){
       const col=result===0?'🟢':ROUL_RED.includes(result)?'🔴':'⚫';
       document.getElementById('roul-msg').textContent=`${col} ${result} — ${mult>0?'Win!':'Loss'}`;
       settle('roul',bet,mult);
+      if(mult>0)trackChallenge('roul_win',1);
       roulSpinning=false;document.getElementById('roul-spin-btn').disabled=false;
     }
   }
   requestAnimationFrame(anim);
 }
 document.getElementById('modal-roul').addEventListener('transitionend',function(){
-  if(this.classList.contains('open')&&!document.getElementById('roul-bet-area')._getBet){
-    buildBetUI('roul-bet-area');roulDrawWheel(0,null,0);
+  if(this.classList.contains('open')){
+    if(!document.getElementById('roul-bet-area')._getBet) buildBetUI('roul-bet-area');
+    roulDrawWheel(0,null,0);
   }
 });
 
@@ -1971,6 +2032,20 @@ function crashCashOut(){
   document.getElementById('crash-start-btn').disabled=false;
   document.getElementById('crash-cash-btn').disabled=true;
   trackChallenge('crash_2x',crashMult>=2?1:0);
+}
+function crashReset(){
+  if(crashState==='running'){cancelAnimationFrame(crashRaf);crashRaf=null;settle('crash',crashBet,0);}
+  if(AP.crash&&AP.crash._poll){clearInterval(AP.crash._poll);AP.crash._poll=null;}
+  crashState='idle';crashMult=1;
+  document.getElementById('crash-mult').className='crash-mult safe';
+  document.getElementById('crash-mult').textContent='1.00×';
+  document.getElementById('crash-msg').textContent='';
+  document.getElementById('crash-start-btn').disabled=false;
+  document.getElementById('crash-cash-btn').disabled=true;
+  const cv=document.getElementById('ccv');
+  const ctx=cv.getContext('2d');
+  cv.width=cv.offsetWidth||460;
+  ctx.fillStyle='#080c10';ctx.fillRect(0,0,cv.width,160);
 }
 document.getElementById('modal-crash').addEventListener('transitionend',function(){
   if(this.classList.contains('open')&&!document.getElementById('crash-bet-area')._getBet)buildBetUI('crash-bet-area');
@@ -2046,7 +2121,7 @@ function plinkoDrop(){
       const mult=PK_MULTS[finalX];
       _pkDropActive=false;
       document.getElementById('plinko-msg').textContent=`${mult}× — ${mult>1?'Win!':'Loss'}`;
-      if(document.getElementById('modal-plinko').classList.contains('open'))settle('plinko',bet,mult);
+      settle('plinko',bet,mult);
       document.getElementById('plinko-drop-btn').disabled=false;
       pkDraw(null);return;
     }
@@ -2245,6 +2320,17 @@ function minesUpdateMult(){
   document.getElementById('mines-mult-display').textContent=minesGetMult().toFixed(2)+'×';
   document.getElementById('mines-safe-count').textContent=minesSafe;
 }
+function minesReset(){
+  if(minesActive){settle('mines',minesBet,0);minesActive=false;}
+  document.getElementById('mines-start-btn').disabled=false;
+  document.getElementById('mines-cash-btn').disabled=true;
+  document.getElementById('mines-count').disabled=false;
+  minesBet=0;minesSafe=0;
+  minesBoard=Array(25).fill('safe');
+  minesRenderGrid();
+  document.getElementById('mines-mult-display').textContent='1.00×';
+  document.getElementById('mines-safe-count').textContent='0';
+}
 document.getElementById('modal-mines').addEventListener('transitionend',function(){
   if(this.classList.contains('open')&&!document.getElementById('mines-bet-area')._getBet){
     buildBetUI('mines-bet-area');minesRenderGrid();
@@ -2283,7 +2369,7 @@ function diceRoll(){
   let frames=0;
   const flash=()=>{
     if(frames++<8){diceDraw(Math.floor(Math.random()*100)+1,true);requestAnimationFrame(flash)}
-    else{diceDraw(result,won);document.getElementById('dice-result').textContent=`Rolled ${result} — ${won?'Win!':'Loss'}`;if(document.getElementById('modal-dice').classList.contains('open'))settle('dice',bet,won?payout:0);btn.disabled=false;if(won)playSFX('win');else playSFX('lose')}
+    else{diceDraw(result,won);document.getElementById('dice-result').textContent=`Rolled ${result} — ${won?'Win!':'Loss'}`;settle('dice',bet,won?payout:0);btn.disabled=false;if(won)playSFX('win');else playSFX('lose')}
   };
   playSFX('spin');requestAnimationFrame(flash);
 }
@@ -2345,15 +2431,13 @@ function hlRenderCard(c){
 }
 function hiloPick(dir){
   if(!hlActive){
-    // First pick — start game
+    // Lock bet, start game — first click IS first prediction (card shown on modal open)
     const ba=document.getElementById('hilo-bet-area');hlBet=ba._getBet?ba._getBet():50;
-    if(hlBet<1||hlBet>STATE.chips)return;
+    if(hlBet<1||hlBet>STATE.chips){document.getElementById('hilo-msg').textContent='Invalid bet';return;}
     hlActive=true;hlStreak=0;hlMult=1;
     document.getElementById('hilo-cash-btn').disabled=false;
-    hlCard=hlNewCard();hlRenderCard(hlCard);
-    document.getElementById('hilo-msg').textContent='Now predict next card';
     document.getElementById('hilo-streak-info').textContent='Streak: 0';
-    return;
+    // Fall through — dir counts as first prediction
   }
   const next=hlNewCard();
   const won=dir==='higher'?next.r>hlCard.r:next.r<hlCard.r;
@@ -2384,6 +2468,15 @@ function hiloCashOut(){
   document.getElementById('hilo-msg').textContent='Cashed out at '+hlMult+'×!';
   document.getElementById('hilo-mult').textContent='Multiplier: 1.00×';
   hlStreak=0;hlMult=1;
+}
+function hiloReset(){
+  if(hlActive){settle('hilo',hlBet,0);hlActive=false;}
+  hlStreak=0;hlMult=1;hlBet=0;
+  document.getElementById('hilo-cash-btn').disabled=true;
+  document.getElementById('hilo-mult').textContent='Multiplier: 1.00×';
+  document.getElementById('hilo-streak-info').textContent='Streak: 0';
+  document.getElementById('hilo-msg').textContent='Pick higher or lower to start';
+  hlCard=hlNewCard();hlRenderCard(hlCard);
 }
 document.getElementById('modal-hilo').addEventListener('transitionend',function(e){
   if(e.propertyName!=='opacity')return;
@@ -2517,6 +2610,7 @@ function kenoDraw(){
   const mult=pay>0?pay:0;
   document.getElementById('keno-msg').textContent=`${hits} hits → ${pay>0?pay+'× payout':'No win'}`;
   settle('keno',bet,mult);
+  trackChallenge('keno_play',1);
   playSFX(mult>1?mult>=10?'bigWin':'win':mult===1?'chip':'lose');
   _kenoResetTimer=setTimeout(()=>{_kenoActive=false;kenoInit();},2500);
 }
@@ -2690,7 +2784,7 @@ function rrInit(){
   document.getElementById('rr-mult').textContent='1.20×';
   document.getElementById('rr-msg').textContent='';
   document.getElementById('rr-pull-btn').disabled=false;
-  buildBetUI('rr-bet-area');
+  if(!document.getElementById('rr-bet-area')._getBet) buildBetUI('rr-bet-area');
 }
 function rrRenderChambers(){
   document.getElementById('rr-chambers').innerHTML=
@@ -2733,6 +2827,10 @@ function rrCashOut(){
   playSFX('win');
   setTimeout(()=>rrInit(),1500);
 }
+function rrReset(){
+  if(_rrShot>0){settle('rr',_rrBet,0);playSFX('lose');}
+  rrInit();
+}
 document.getElementById('modal-rr').addEventListener('transitionend',function(){
   if(this.classList.contains('open'))rrInit();
 });
@@ -2772,10 +2870,18 @@ function dtRender(){
   }
 }
 function dtStart(){
+  if(_dtActive){settle('dtower',_dtBet,0);_dtActive=false;} // forfeit previous game
   const ba=document.getElementById('dt-bet-area');
   _dtBet=ba._getBet?ba._getBet():50;
   if(_dtBet<1||_dtBet>STATE.chips){document.getElementById('dt-msg').textContent='Invalid bet';return;}
-  _dtActive=true;
+  _dtGrid=Array(DT_ROWS).fill(0).map(()=>{
+    const safe=Math.floor(Math.random()*DT_COLS);
+    return Array(DT_COLS).fill(0).map((_,i)=>({safe:i===safe,revealed:false}));
+  });
+  _dtFloor=0;_dtActive=true;
+  document.getElementById('dt-floor').textContent='0';
+  document.getElementById('dt-mult').textContent='1×';
+  document.getElementById('dt-msg').textContent='';
   document.getElementById('dt-start-btn').disabled=true;
   document.getElementById('dt-cash-btn').disabled=false;
   dtRender();
@@ -2817,6 +2923,10 @@ function dtCashOut(){
   _dtActive=false;playSFX('win');
   setTimeout(()=>dtInit(),1500);
 }
+function dtReset(){
+  if(_dtActive){settle('dtower',_dtBet,0);playSFX('lose');}
+  dtInit();
+}
 document.getElementById('modal-dtower').addEventListener('transitionend',function(){
   if(this.classList.contains('open'))dtInit();
 });
@@ -2825,7 +2935,7 @@ document.getElementById('modal-dtower').addEventListener('transitionend',functio
 // STREET CRAPS
 // ============================================================
 const DICE_FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
-let _crapsSel='pass',_crapsPoint=0,_crapsPhase='comeout';
+let _crapsSel='pass',_crapsPoint=0,_crapsPhase='comeout',_crapsLockedBet=0;
 function crapsSelBet(t,btn){
   _crapsSel=t;
   document.querySelectorAll('.craps-bet-btn').forEach(b=>b.classList.remove('sel'));
@@ -2852,15 +2962,17 @@ function crapsRoll(){
       if(_crapsSel==='dpass'&&sum===12){mult=1;msg='Bar 12 — Don\'t Pass pushes';}
       else if(_crapsSel==='dpass'){mult=2;msg='Craps! Don\'t Pass wins!';}
       else{mult=0;msg='Craps! Pass loses';}
-    } else {_crapsPoint=sum;_crapsPhase='point';document.getElementById('craps-point').textContent=sum;document.getElementById('craps-phase').textContent='Point';msg='Point set: '+sum;done=false;}
+    } else {_crapsPoint=sum;_crapsPhase='point';_crapsLockedBet=bet;document.getElementById('craps-point').textContent=sum;document.getElementById('craps-phase').textContent='Point';msg='Point set: '+sum+' (bet locked)';done=false;}
   } else {
     if(sum===7){done=true;mult=_crapsSel==='dpass'?2:0;msg=_crapsSel==='dpass'?'Seven-out — Don\'t Pass wins!':'Seven-out — Pass loses!';}
     else if(sum===_crapsPoint){done=true;mult=_crapsSel==='pass'?2:0;msg=_crapsSel==='pass'?`Point ${sum}! Pass wins!`:`Point hit — Don't Pass loses`;}
     else{msg=`Roll: ${sum}. Point: ${_crapsPoint}`;done=false;}
   }
   if(done){
-    settle('craps',bet,mult);
-    _crapsPhase='comeout';_crapsPoint=0;
+    const wasPoint=_crapsPhase==='point';
+    const settleBet=wasPoint?_crapsLockedBet:bet;
+    settle('craps',settleBet,mult);
+    _crapsPhase='comeout';_crapsPoint=0;_crapsLockedBet=0;
     document.getElementById('craps-point').textContent='—';
     document.getElementById('craps-phase').textContent='Come-out';
     playSFX(mult>1?'win':'lose');
@@ -2872,7 +2984,7 @@ document.getElementById('modal-craps').addEventListener('transitionend',function
   if(e.propertyName!=='opacity')return;
   if(this.classList.contains('open')){
     if(!document.getElementById('craps-bet-area')._getBet)buildBetUI('craps-bet-area');
-    _crapsPhase='comeout';_crapsPoint=0;_crapsSel='pass';
+    _crapsPhase='comeout';_crapsPoint=0;_crapsLockedBet=0;_crapsSel='pass';
     document.getElementById('craps-point').textContent='—';
     document.getElementById('craps-phase').textContent='Come-out';
     document.getElementById('craps-msg').textContent='';
@@ -3318,13 +3430,15 @@ document.addEventListener('DOMContentLoaded',loadArcBests);
 // ============================================================
 // XP — add to settle()
 // ============================================================
-// Patch settle to award XP: 5 XP per 100 chips bet, +20 bonus on win
+// Patch settle to award XP: 1 XP per 20 chips bet, +20 bonus on win; skip XP for 0-bet forfeits
 (function(){
   const _origSettle=settle;
   window.settle=function(game,bet,mult){
     _origSettle(game,bet,mult);
-    const xpEarned=Math.max(1,Math.floor(bet/20))+(mult>1?20:0);
-    addXP(xpEarned);
+    if(bet>0){
+      const xpEarned=Math.max(1,Math.floor(bet/20))+(mult>1?20:0);
+      addXP(xpEarned);
+    }
     historyAdd(game,bet,mult);
     checkAchievements();
   };
@@ -3637,7 +3751,14 @@ function hsbjReveal(){
   document.getElementById('hsbj-actions').innerHTML=`<button class="btn-gold" style="flex:1" onclick="hsbjDeal()">Deal Again</button>`;
 }
 document.getElementById('modal-hsbj').addEventListener('transitionend',function(){
-  if(this.classList.contains('open')&&!document.getElementById('hsbj-bet-area')._getBet){buildBetUI('hsbj-bet-area',()=>Math.min(5000,STATE.chips));_hsbjActive=false;_hsbjPlayer=[];_hsbjDealer=[];document.getElementById('hsbj-player-cards').innerHTML='';document.getElementById('hsbj-dealer-cards').innerHTML='';document.getElementById('hsbj-msg').textContent='';document.getElementById('hsbj-actions').innerHTML='<button class="btn-gold" style="flex:1" onclick="hsbjDeal()">Deal</button>';}
+  if(this.classList.contains('open')){
+    if(!document.getElementById('hsbj-bet-area')._getBet) buildBetUI('hsbj-bet-area',()=>Math.min(5000,STATE.chips));
+    _hsbjActive=false;_hsbjPlayer=[];_hsbjDealer=[];
+    document.getElementById('hsbj-player-cards').innerHTML='';
+    document.getElementById('hsbj-dealer-cards').innerHTML='';
+    document.getElementById('hsbj-msg').textContent='';
+    document.getElementById('hsbj-actions').innerHTML='<button class="btn-gold" style="flex:1" onclick="hsbjDeal()">Deal</button>';
+  }
 });
 
 // ============================================================
@@ -3729,7 +3850,8 @@ let _gameStats=JSON.parse(localStorage.getItem(STATS_KEY)||'{}');
     if(!_gameStats[game])_gameStats[game]={plays:0,wins:0,profit:0};
     _gameStats[game].plays++;
     if(mult>1)_gameStats[game].wins++;
-    _gameStats[game].profit+=mult===1?0:mult>1?Math.round(bet*(mult-1)):-bet;
+    const _vm=VIP_MULT[STATE.vip]||1;
+    _gameStats[game].profit+=mult===1?0:mult>1?Math.round(bet*(mult-1)*_vm):-bet;
     localStorage.setItem(STATS_KEY,JSON.stringify(_gameStats));
   };
 })();
@@ -3862,6 +3984,12 @@ function updateHabSummary(){
 function toggleUserMenu(){
   const m=document.getElementById('user-menu');
   m.classList.toggle('open');
+}
+function resetChips(){
+  if(!confirm('Reset balance to 1,000 chips?'))return;
+  setChips(1000,'win');
+  renderNav();renderHomeStats();
+  toast('Balance reset to 1,000 chips','info');
 }
 // Close menu on outside click
 document.addEventListener('click',e=>{
