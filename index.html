@@ -1335,10 +1335,14 @@ function authSubmit(){
     if(u.length<3){err.textContent='Username min 3 chars.';btn.disabled=false;return}
     if(!email){err.textContent='Email required.';btn.disabled=false;return}
     if(pass.length<6){err.textContent='Password min 6 chars.';btn.disabled=false;return}
-    fbAuth.createUserWithEmailAndPassword(email,pass).then(c=>{STATE.uid=c.user.uid;STATE.username=u;STATE.chips=1000;STATE.xp=0;savePlayer();onAuthed()}).catch(e=>{err.textContent=friendlyAuthError(e.code);btn.disabled=false});
+    fbAuth.createUserWithEmailAndPassword(email,pass).then(c=>{
+      STATE.uid=c.user.uid;STATE.username=u;
+      STATE.chips=1000;STATE.xp=0;STATE.level=1;STATE.wins=0;STATE.biggest=0;STATE.streak=0;STATE.vip=0;
+      savePlayerNow(); // write before onAuthStateChanged fires loadPlayer
+    }).catch(e=>{err.textContent=friendlyAuthError(e.code);btn.disabled=false});
   } else {
     if(!email||!pass){err.textContent='Email and password required.';btn.disabled=false;return}
-    fbAuth.signInWithEmailAndPassword(email,pass).then(c=>{STATE.uid=c.user.uid;loadPlayer().then(onAuthed)}).catch(e=>{err.textContent=friendlyAuthError(e.code);btn.disabled=false});
+    fbAuth.signInWithEmailAndPassword(email,pass).catch(e=>{err.textContent=friendlyAuthError(e.code);btn.disabled=false});
   }
 }
 function friendlyAuthError(c){return({'auth/invalid-email':'Invalid email.','auth/user-not-found':'No account found.','auth/wrong-password':'Wrong password.','auth/email-already-in-use':'Email already registered.','auth/weak-password':'Password too weak (6+ chars).','auth/too-many-requests':'Too many attempts. Wait.','auth/invalid-credential':'Invalid email or password.'}[c])||'Something went wrong.'}
@@ -2740,7 +2744,7 @@ document.getElementById('modal-poker').addEventListener('transitionend',function
 let _rrBullet=-1,_rrShot=0,_rrBet=0;
 const RR_MULTS=[1.2,1.5,2,2.5,5,0];
 function rrInit(){
-  _rrBullet=Math.floor(Math.random()*5);
+  _rrBullet=Math.floor(Math.random()*6);
   _rrShot=0;
   rrRenderChambers();
   document.getElementById('rr-mult').textContent='1.20×';
@@ -2931,10 +2935,11 @@ function crapsRoll(){
     else{msg=`Roll: ${sum}. Point: ${_crapsPoint}`;done=false;}
   }
   if(done){
-    const wasPoint=_crapsPhase==='point';
+    const isPassLine=_crapsSel==='pass'||_crapsSel==='dpass';
+    const wasPoint=_crapsPhase==='point'&&isPassLine;
     const settleBet=wasPoint?_crapsLockedBet:bet;
     settle('craps',settleBet,mult);
-    _crapsPhase='comeout';_crapsPoint=0;_crapsLockedBet=0;
+    if(isPassLine){_crapsPhase='comeout';_crapsPoint=0;_crapsLockedBet=0;}
     document.getElementById('craps-point').textContent='—';
     document.getElementById('craps-phase').textContent='Come-out';
     playSFX(mult>1?'win':'lose');
@@ -3172,7 +3177,8 @@ function brkoutStep(){
   if(_bkBall.y+BK_BALL_R>=py&&_bkBall.y-BK_BALL_R<=py+BK_PAD_H&&_bkBall.x>px&&_bkBall.x<px+BK_PAD_W&&_bkBall.vy>0){
     const rel=(_bkBall.x-(px+BK_PAD_W/2))/(BK_PAD_W/2);
     const spd=Math.sqrt(_bkBall.vx**2+_bkBall.vy**2);
-    _bkBall.vx=rel*spd;_bkBall.vy=-Math.sqrt(Math.max(0,spd**2-_bkBall.vx**2));
+    const clampedRel=Math.max(-0.85,Math.min(0.85,rel));
+    _bkBall.vx=clampedRel*spd;_bkBall.vy=-Math.sqrt(Math.max(spd*spd*0.28,spd**2-_bkBall.vx**2));
     playSFX('tick');
   }
   // Bottom
@@ -3413,7 +3419,8 @@ const HISTORY_KEY='aur3-hist-v1';
 let _history=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');
 function historyAdd(game,bet,mult){
   const result=mult>1?'win':mult===1?'push':'lose';
-  const profit=mult===1?0:mult>1?Math.round(bet*(mult-1)):-(bet);
+  const _hvm=VIP_MULT[STATE.vip]||1;
+  const profit=mult===1?0:mult>1?Math.round(bet*(mult-1)*_hvm):-(bet);
   _history.unshift({game,bet,mult,result,profit,ts:Date.now()});
   if(_history.length>30)_history.pop();
   localStorage.setItem(HISTORY_KEY,JSON.stringify(_history));
