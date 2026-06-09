@@ -447,20 +447,6 @@ img,canvas{display:block}
 .vip-progress-label{display:flex;justify-content:space-between;font-size:.72rem;color:var(--tx3);margin-bottom:.4rem}
 .vip-progress-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
 .vip-progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .6s ease}
-/* ── Auto-play ── */
-.autoplay-panel{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:.75rem;margin-top:.75rem}
-.autoplay-panel h4{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);margin:0 0 .6rem}
-.autoplay-row{display:flex;gap:.4rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap}
-.autoplay-row label{font-size:.68rem;color:var(--tx3);min-width:60px}
-.autoplay-rounds{display:flex;gap:.3rem}
-.autoplay-rounds button{padding:.25rem .55rem;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface);color:var(--tx3);font-size:.68rem;font-weight:700;cursor:pointer;transition:var(--fast)}
-.autoplay-rounds button.sel{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
-.autoplay-stop-row{display:flex;gap:.5rem;flex-wrap:wrap}
-.autoplay-stop-opt{display:flex;align-items:center;gap:.25rem;font-size:.68rem;color:var(--tx3);cursor:pointer;user-select:none}
-.autoplay-stop-opt input{accent-color:var(--gold);width:13px;height:13px}
-.autoplay-stop-opt span{font-family:var(--mono);width:52px}
-.autoplay-stop-opt input[type=number]{width:60px;background:var(--surface);border:1px solid var(--border);color:var(--tx);border-radius:4px;padding:.15rem .3rem;font-size:.68rem;font-family:var(--mono)}
-.autoplay-status{font-family:var(--mono);font-size:.7rem;color:var(--gold);text-align:center;min-height:1.2em;margin-top:.3rem}
 /* ── Stats Dashboard ── */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-top:1rem}
 .stats-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:.9rem .75rem}
@@ -863,14 +849,6 @@ img,canvas{display:block}
         <button class="btn-ghost" style="flex:1" onclick="crashCashOut()" id="crash-cash-btn" disabled>Cash Out</button>
         <button class="btn-ghost" style="font-size:.72rem;padding:.45rem .6rem" onclick="crashReset()">New Game</button>
       </div>
-      <div class="autoplay-panel" id="crash-ap-panel">
-        <h4>Auto-Play</h4>
-        <div class="autoplay-row"><label>Rounds</label><div class="autoplay-rounds" id="crash-ap-rounds"><button class="sel" data-n="5" onclick="apSelRounds('crash',5,this)">5</button><button data-n="10" onclick="apSelRounds('crash',10,this)">10</button><button data-n="25" onclick="apSelRounds('crash',25,this)">25</button><button data-n="50" onclick="apSelRounds('crash',50,this)">50</button></div></div>
-        <div class="autoplay-row"><label>Cash at</label><input type="number" id="crash-ap-target" value="2" min="1.01" step="0.1" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--tx);border-radius:4px;padding:.2rem .4rem;font-size:.72rem;font-family:var(--mono)">×</div>
-        <div class="autoplay-stop-row"><label class="autoplay-stop-opt"><input type="checkbox" id="crash-ap-sl-chk"><span>Stop on loss ≥</span><input type="number" id="crash-ap-sl-val" value="500" min="1" style="display:none"></label></div>
-        <div style="display:flex;gap:.5rem;margin-top:.5rem"><button class="btn-gold" style="flex:1;font-size:.72rem" onclick="apStart('crash')" id="crash-ap-start">Start Auto</button><button class="btn-ghost" style="flex:1;font-size:.72rem" onclick="apStop('crash')" id="crash-ap-stop" disabled>Stop</button></div>
-        <div class="autoplay-status" id="crash-ap-status"></div>
-      </div>
       <div style="text-align:center;font-size:.8rem;color:var(--tx3);margin-top:.5rem" id="crash-msg"></div>
     </div>
   </div>
@@ -901,13 +879,6 @@ img,canvas{display:block}
       <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:.72rem;color:var(--tx3);margin-bottom:.5rem"><span>5 Reels · 3 Rows</span><span id="slots-msg" style="color:var(--gold)"></span></div>
       <div id="slots-bet-area"></div>
       <button class="btn-gold" style="width:100%;margin-top:.75rem" onclick="slotsSpin()" id="slots-spin-btn">Spin</button>
-      <div class="autoplay-panel" id="slots-ap-panel">
-        <h4>Auto-Play</h4>
-        <div class="autoplay-row"><label>Rounds</label><div class="autoplay-rounds" id="slots-ap-rounds"><button class="sel" data-n="5" onclick="apSelRounds('slots',5,this)">5</button><button data-n="10" onclick="apSelRounds('slots',10,this)">10</button><button data-n="25" onclick="apSelRounds('slots',25,this)">25</button><button data-n="50" onclick="apSelRounds('slots',50,this)">50</button></div></div>
-        <div class="autoplay-stop-row"><label class="autoplay-stop-opt"><input type="checkbox" id="slots-ap-sl-chk"><span>Stop on loss ≥</span><input type="number" id="slots-ap-sl-val" value="500" min="1" style="display:none"></label><label class="autoplay-stop-opt"><input type="checkbox" id="slots-ap-sw-chk"><span>Stop on win ≥</span><input type="number" id="slots-ap-sw-val" value="1000" min="1" style="display:none"></label></div>
-        <div style="display:flex;gap:.5rem;margin-top:.5rem"><button class="btn-gold" style="flex:1;font-size:.72rem" onclick="apStart('slots')" id="slots-ap-start">Start Auto</button><button class="btn-ghost" style="flex:1;font-size:.72rem" onclick="apStop('slots')" id="slots-ap-stop" disabled>Stop</button></div>
-        <div class="autoplay-status" id="slots-ap-status"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -954,13 +925,6 @@ img,canvas{display:block}
       <div id="dice-bet-area"></div>
       <div style="text-align:center;font-family:var(--mono);font-size:1.1rem;font-weight:700;min-height:1.6em;color:var(--gold);margin:.5rem 0" id="dice-result"></div>
       <button class="btn-gold" style="width:100%" onclick="diceRoll()" id="dice-roll-btn">Roll</button>
-      <div class="autoplay-panel" id="dice-ap-panel">
-        <h4>Auto-Play</h4>
-        <div class="autoplay-row"><label>Rounds</label><div class="autoplay-rounds" id="dice-ap-rounds"><button class="sel" data-n="5" onclick="apSelRounds('dice',5,this)">5</button><button data-n="10" onclick="apSelRounds('dice',10,this)">10</button><button data-n="25" onclick="apSelRounds('dice',25,this)">25</button><button data-n="50" onclick="apSelRounds('dice',50,this)">50</button></div></div>
-        <div class="autoplay-stop-row"><label class="autoplay-stop-opt"><input type="checkbox" id="dice-ap-sl-chk"><span>Stop on loss ≥</span><input type="number" id="dice-ap-sl-val" value="500" min="1" style="display:none"></label><label class="autoplay-stop-opt"><input type="checkbox" id="dice-ap-sw-chk"><span>Stop on win ≥</span><input type="number" id="dice-ap-sw-val" value="1000" min="1" style="display:none"></label></div>
-        <div style="display:flex;gap:.5rem;margin-top:.5rem"><button class="btn-gold" style="flex:1;font-size:.72rem" onclick="apStart('dice')" id="dice-ap-start">Start Auto</button><button class="btn-ghost" style="flex:1;font-size:.72rem" onclick="apStop('dice')" id="dice-ap-stop" disabled>Stop</button></div>
-        <div class="autoplay-status" id="dice-ap-status"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -1684,7 +1648,6 @@ function closeGame(id){
   _blobPaused=false;
   // Crash: settle then cancel RAF
   if(id==='crash'&&crashState==='running'){settle('crash',crashBet,0);cancelAnimationFrame(crashRaf);crashRaf=null;crashState='idle';document.getElementById('crash-start-btn').disabled=false;document.getElementById('crash-cash-btn').disabled=true;}
-  if(id==='crash'){if(AP.crash&&AP.crash._poll){clearInterval(AP.crash._poll);AP.crash._poll=null;}}
   if(id==='plinko')_pkDropActive=false;
   // Mines: settle then reset
   if(id==='mines'&&minesActive){settle('mines',minesBet,0);minesActive=false;document.getElementById('mines-start-btn').disabled=false;document.getElementById('mines-cash-btn').disabled=true;minesRenderGrid();}
@@ -2035,7 +1998,6 @@ function crashCashOut(){
 }
 function crashReset(){
   if(crashState==='running'){cancelAnimationFrame(crashRaf);crashRaf=null;settle('crash',crashBet,0);}
-  if(AP.crash&&AP.crash._poll){clearInterval(AP.crash._poll);AP.crash._poll=null;}
   crashState='idle';crashMult=1;
   document.getElementById('crash-mult').className='crash-mult safe';
   document.getElementById('crash-mult').textContent='1.00×';
@@ -3605,64 +3567,6 @@ document.getElementById('mob-compete')?.addEventListener('click',()=>{setTimeout
   });
 });
 
-// ============================================================
-// AUTO-PLAY ENGINE
-// ============================================================
-const AP={};
-['slots','dice','crash'].forEach(g=>{AP[g]={rounds:5,remaining:0,running:false,startChips:0};});
-function apSelRounds(game,n,btn){
-  AP[game].rounds=n;
-  document.querySelectorAll(`#${game}-ap-rounds button`).forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
-}
-function apStart(game){
-  if(AP[game].running)return;
-  const ba=document.getElementById(game+'-bet-area');
-  const bet=ba._getBet?ba._getBet():50;
-  if(bet<1||bet>STATE.chips){toast('Invalid bet for auto-play','info');return;}
-  AP[game].running=true;AP[game].remaining=AP[game].rounds;AP[game].startChips=STATE.chips;
-  document.getElementById(`${game}-ap-start`).disabled=true;
-  document.getElementById(`${game}-ap-stop`).disabled=false;
-  document.getElementById(`${game}-ap-status`).textContent=`Running ${AP[game].remaining} rounds...`;
-  apTick(game);
-}
-function apStop(game){
-  AP[game].running=false;
-  document.getElementById(`${game}-ap-start`).disabled=false;
-  document.getElementById(`${game}-ap-stop`).disabled=true;
-  document.getElementById(`${game}-ap-status`).textContent='Stopped.';
-}
-function apCheck(game){
-  const ap=AP[game];
-  if(!ap.running)return false;
-  const _apBa=document.getElementById(game+'-bet-area');
-  if(_apBa&&_apBa._getBet&&_apBa._getBet()>STATE.chips){apStop(game);document.getElementById(`${game}-ap-status`).textContent='Stopped: insufficient chips';return false;}
-  // Stop-on-loss
-  const slChk=document.getElementById(`${game}-ap-sl-chk`);
-  if(slChk&&slChk.checked){const slVal=+document.getElementById(`${game}-ap-sl-val`).value||500;if(ap.startChips-STATE.chips>=slVal){apStop(game);document.getElementById(`${game}-ap-status`).textContent=`Stopped: loss ≥ ${slVal}`;return false;}}
-  // Stop-on-win (slots/dice only)
-  const swChk=document.getElementById(`${game}-ap-sw-chk`);
-  if(swChk&&swChk.checked){const swVal=+document.getElementById(`${game}-ap-sw-val`).value||1000;if(STATE.chips-ap.startChips>=swVal){apStop(game);document.getElementById(`${game}-ap-status`).textContent=`Stopped: win ≥ ${swVal}`;return false;}}
-  ap.remaining--;
-  if(ap.remaining<=0){apStop(game);document.getElementById(`${game}-ap-status`).textContent=`Done! Net: ${STATE.chips-ap.startChips>=0?'+':''}${(STATE.chips-ap.startChips).toLocaleString()}`;return false;}
-  document.getElementById(`${game}-ap-status`).textContent=`${ap.remaining} rounds left...`;
-  return true;
-}
-function apTick(game){
-  if(!AP[game].running)return;
-  if(game==='slots'){slotsSpin();setTimeout(()=>{if(apCheck('slots'))setTimeout(()=>apTick('slots'),400);},1200);}
-  else if(game==='dice'){diceRoll();setTimeout(()=>{if(apCheck('dice'))setTimeout(()=>apTick('dice'),300);},500);}
-  else if(game==='crash'){
-    const target=parseFloat(document.getElementById('crash-ap-target').value)||2;
-    crashStart();
-    // Poll until crash resolves, then cash out at target or check outcome
-    AP.crash._poll=setInterval(()=>{
-      if(!AP.crash.running){clearInterval(AP.crash._poll);AP.crash._poll=null;return;}
-      if(crashState==='running'&&crashMult>=target){crashCashOut();clearInterval(AP.crash._poll);AP.crash._poll=null;setTimeout(()=>{if(apCheck('crash'))setTimeout(()=>apTick('crash'),600);},500);}
-      else if(crashState==='idle'){clearInterval(AP.crash._poll);AP.crash._poll=null;setTimeout(()=>{if(apCheck('crash'))setTimeout(()=>apTick('crash'),600);},300);}
-    },100);
-  }
-}
 
 // ============================================================
 // VIP SYSTEM — display + exclusive games
@@ -4055,7 +3959,6 @@ window.go=function(id){
 // ============================================================
 document.addEventListener('DOMContentLoaded',()=>{
   habitRender();
-  // Wire autoplay checkbox show/hide already done above — guard duplicates
 });
 </script>
 </body>
